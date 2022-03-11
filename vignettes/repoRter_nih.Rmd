@@ -102,7 +102,7 @@ p
 
 # Introduction
 
-The US National Institute of Health (NIH) received funding of approximately \$42 billion in fiscal year 2022; \$31 billion (72%) of this was awarded by the NIH in the form of grant funding to hospitals, medical colleges, non-profits, businesses, and other organizations based in the U.S. and abroad.^[https://nexus.od.nih.gov/all/2021/04/21/fy-2020-by-the-numbers-extramural-investments-in-research] The NIH maintains a publicly available database called "RePORTER" to track this substantial flow of grant funding and makes it available to the public via [a web-based query interface](https://reporter.nih.gov/) as well as an API.
+The US National Institute of Health (NIH) received funding of approximately \$42 billion in fiscal year 2022; \$31 billion (72%) of this was awarded by the NIH in the form of research grant funding to hospitals, medical colleges, non-profits, businesses, and other organizations based in the U.S. and abroad.^[https://nexus.od.nih.gov/all/2021/04/21/fy-2020-by-the-numbers-extramural-investments-in-research] The NIH maintains a publicly available database called "RePORTER" to track this substantial flow of grant funding and makes it available to the public via [a web-based query interface](https://reporter.nih.gov/) as well as an API.
 
 > "The NIH RePORTER APIs is designed to programmatically expose relevant scientific awards data from both NIH and non-NIH federal agencies for the consumption of project teams or external 3rd party applications to support reporting, data analysis, data integration or to satisfy other business needs as deemed pertinent." 
 >`r tufte::quote_footer('--NIH RePORTER v2 API Documentation')`
@@ -149,7 +149,7 @@ res <- get_nih_data(req)
 class(res)
 ```
 
-A tibble is returned containing 43 columns, several of them nested `data.frame`s and lists (of variable length vectors and `data.frame`s of varying height).
+A tibble is returned containing 43 columns. This data is not flat - several columns are nested `data.frame`s and `list`s (of variable length vectors and `data.frame`s of varying height).
 
 ```{r}
 res %>% glimpse(width = getOption("cli.width"))
@@ -171,7 +171,7 @@ Most of the detail (and function documentation) is around the many parameters av
 
 ## Default Request
 
-If no arguments are supplied, the default behavior of `make_req()` is to generate a request for all projects funded in `fiscal_years = lubridate::year(Sys.Date())`. Limiting requests to a single year may be necessary (depending on other filtering criteria used, if any) due to a RePORTER restriction that a maximum of 10K records may be returned from any result set. There are currently ~2.6M projects in the database going back to fiscal year 1985, and each fiscal year tends to have 70-100K projects, so the 10K limit can be restrictive to the user wanting a broad search.
+If no arguments are supplied, the default behavior of `make_req()` is to generate a request for all projects funded in `fiscal_years = lubridate::year(Sys.Date())`. Limiting requests to a single year is often necessary (depending on additional filtering criteria used) due to a RePORTER restriction that a maximum of 10K records may be returned from any result set. There are currently ~2.6M projects in the database going back to fiscal year 1985, and each fiscal year tends to have 70-100K projects, so the 10K limit can be restrictive to the user wanting a broad search.
 
 ```{r}
 req <- make_req()
@@ -189,7 +189,7 @@ We probably will not need to fetch every field every time. The `include_fields` 
 
 ### Records (projects)
 
-This package provides the ability to retrieve only a limited number of result pages via the `max_pages` argument. This can be useful for developing/testing your queries (and for reducing time to render package documentation). Each page has a record count equal to `limit` - so setting `max_pages = 5` with the default `limit = 500` in `make_req()` will result in up to 2,500 total records returned.
+This package provides the ability to retrieve only a limited number of result pages via the `max_pages` argument. This can be useful for developing/testing your queries (and for reducing time to render package documentation). Each page has a record count equal to `limit` - so setting `max_pages = 5` with the default `limit = 500` (the maximum permitted by RePORTER) in `make_req()` will result in up to 2,500 total records returned.
 
 ### Ex. 1 - Limiting results and selecting fields
 
@@ -222,21 +222,21 @@ We can refine our query results by providing filtering criteria to `make_req()`,
 req <- make_req(criteria = 
                   list(
                     fiscal_years = 2010:2011,
-                    include_active_projects = TRUE, # LIMITS to active projects
+                    include_active_projects = TRUE,
                     org_names = c("Yale", "New Haven")
                   ),
                 include_fields = c("Organization", "FiscalYear", "AwardAmount"),
                 message = FALSE)
 ```
 
-Here we are asking for any orgs containing the strings "yale" or "new haven" (ignoring case) - there are implied wildcards on either end of the strings we provide. This is the same as `org_name LIKE '%yale%' OR org_name LIKE '%new haven%'" in a SQL WHERE clause.
+Here we are asking for any orgs containing the strings "yale" or "new haven" (ignoring case) - there are implied wildcards on either end of the strings we provide. This is the same as `org_name LIKE '%yale%' OR org_name LIKE '%new haven%'` in a SQL WHERE clause.
 
 ```{r, cache=TRUE}
 res <- get_nih_data(req, max_pages = 1)
 res %>% glimpse(width = getOption("cli.width"))
 ```
 
-Look closely at the print output and notice the column `organization` is a nested data frame - it has 17 columns and always a single record. Setting `flatten_result = TRUE` in the call to `get_nih_data()` will flatten all such return fields, prefixing the original field name and returning with clean names (see `janitor::clean_names`).
+Notice the column `organization` is a nested data frame - it has 17 columns and always a single record. Setting `flatten_result = TRUE` in the call to `get_nih_data()` will flatten all such return fields, prefixing the original field name and returning with clean names (see `janitor::clean_names()`).
 
 ```{r}
 res <- get_nih_data(req,
@@ -318,13 +318,14 @@ res$covid_response %>% class()
 res$covid_response[[1]]
 ```
 
-`covid_response` is a nested list (with character vectors of variable length) within the return tibble. We can use `flatten_result = TRUE` here - elements of each vector will be collapsed to a single string with ";" as separator, converting the list to a single character vector.
+`covid_response` is a nested list (with character vectors of variable length) within the return tibble. We can use `flatten_result = TRUE` here - elements of each vector will be collapsed to a single string delimited by ";", massaging the list to a single character vector.
 
 ```{r covid, cache = TRUE}
 ## all projects funded by the Paycheck Protection Act, Coronavirus Response and Relief Act,
 ## and American Rescue Plan, in fiscal year 2021
 req <- make_req(criteria =
-                  list(covid_response = c("All")))
+                  list(covid_response = c("All")),
+                message = FALSE)
 
 res <- get_nih_data(req,
                     flatten_result = TRUE)
@@ -332,7 +333,7 @@ res <- get_nih_data(req,
 unique(res$covid_response)
 ```
 
-Summarizing all Covid-related project awards:
+Some projects are being funded from multiple sources. Summarizing all Covid-related project awards:
 
 ```{r, fig.width=7, fig.height=4}
 library(ggplot2)
@@ -371,7 +372,7 @@ res %>%
   ggtitle("Legislative Source for NIH Covid Response Project Funding")
 ```
 
-A second dataset is provided to translate the `covid_response` codes:
+A second dataset is provided to translate the `covid_response` codes; it includes both the long-form and a shorter version of the source name.
 
 ```{r}
 data("covid_response_codes")
@@ -408,14 +409,15 @@ res %>% glimpse(width = getOption("cli.width"))
 
 Here we searched for any projects with a PI first-named "Michael" or beginning with "Jo" - the "*" is a wildcard operator.
 
-Note that the first column in the return is a list of data frames of _variable height_ - we leave such returned elements to the user to handle extraction - flattening is only done for lists of atomic vectors and nested data frames.
+Note that the first column in the return is a list of data frames of _variable height_ (not a nested `data.frame`) - we leave such returned elements to the user to handle extraction/formatting - flattening is only performed for lists of atomic vectors and nested data frames.
 
 ### Ex. 5 - Advanced text search
 
-RePORTER allows users to search the project title, abstract, and tags for specific terms or phrases. You can access this capability with the `advanced_text_search` criteria - a named list with three elements.
+RePORTER allows users to search the project title, abstract, and tags for specific terms or phrases. You can access this capability with the `advanced_text_search` criteria - a named list with three elements:
 
-- `operator` may be either "and", "or", or "advanced" - and/or will specify the logical operator connecting multiple search terms. "advanced" allows the user to pass a boolean search string directly.
-- `search_field` can be any or multiple of "terms", "abstract", "projecttitle." To search all items, specify "all" or "" (a length 1 vector with an empty string).
+- `operator` may be either "and", "or", or "advanced" - and/or will specify the logical operator connecting multiple search terms. "advanced" allows the user to pass a boolean search string directly;
+- `search_field` can be any or multiple of "terms", "abstract", "projecttitle." To search all items, specify "all" or "" (a length 1 vector with an empty string);
+- `search_text` may be either a length 1 character vector of space-delimited search terms (when using "and" or "or" for the operator argument - the logical operator is inserted between all search terms); or it may be a boolean search string (when specifying "advanced" for the operator argument).
 
 ```{r}
 ## using advanced_text_search with boolean search string
@@ -424,25 +426,26 @@ req <- make_req(criteria =
                          list(operator = "advanced",
                               search_field = c("terms", "abstract"),
                               search_text = "(head AND trauma) OR \"brain damage\" AND NOT \"psychological\"")),
-                include_fields = c("ProjectTitle", "AbstractText", "Terms")  )
+                include_fields = c("ProjectTitle", "AbstractText", "Terms") )
 
 res <- get_nih_data(req, max_pages = 1)
 ```
 Let's inspect the fields we searched from one of these results:
 ```{r}
 one_rec <- res %>%
-  slice(4) %>%
+  slice(5) %>%
   mutate(abstract_text = gsub("[\r\n]", " ", abstract_text))
 
 one_rec %>% pull(project_title) %>% print
 ```
 
 ```{r}
-one_rec %>% pull(abstract_text) %>% print
+## substr to avoid LaTeX error exceeding char limit
+one_rec %>% pull(abstract_text) %>% substr(1, 85) %>% print
 ```
 
 ```{r}
-one_rec %>% pull(terms) %>% substr(1, 500) %>% print
+one_rec %>% pull(terms) %>% substr(1, 85) %>% print
 ```
 
 # Large Result Sets
@@ -452,10 +455,10 @@ The RePORTER API provides no direct way to obtain complete result sets when sear
 1. Obtain a sample from your full result set by making the query you desire and calling `get_nih_data()` with `max_pages = 1` (or some small number of pages); also set `return_meta = TRUE` in order to determine the total number of records in the full result set
 2. Calculate quantiles for the sample distribution of the `award_amount` column
     + Set the # of quantiles such that you can confidently infer that the number of records within each range from the full result set will contain <10K records
-3. Iterate over your quantiles to make separate requests, passing the endpoints of each quantile to `award$award_amount_range` criteria
-    + Wait until the end to flatten results since some columns may flatten differently on smaller individual result sets, creating problems combining them
+3. Iterate over your quantiles making separate requests, passing the endpoints of each quantile to `award$award_amount_range` criteria
+    + Wait until the end to flatten results since some columns may flatten differently on smaller individual result sets, causing problems in combining them
 4. Bind your list of results together
-5. Flatten the complete result set if desired
+5. Flatten the complete result set, if desired
 
 Below is an implementation of the above logic:
 
@@ -518,8 +521,7 @@ annoying_columns <- all_res %>%
 
 # Additional Resources
 
-- The [RePORTER web interface](https://reporter.nih.gov/advanced-search) is useful for getting familiar with available search parameters
-- [The official API documentation](https://api.reporter.nih.gov/documents/Data%20Elements%20for%20RePORTER%20Project%20API%20v2.pdf)
+- The [RePORTER web interface](https://reporter.nih.gov/advanced-search) and [official API documentation](https://api.reporter.nih.gov/documents/Data%20Elements%20for%20RePORTER%20Project%20API%20v2.pdf) are useful for getting familiar with available search parameters
 - ...and the homepage with further examples/documentation is [here](https://api.reporter.nih.gov/)
 - Information on NIH study sections, IRGs, etc. is [here](https://public.csr.nih.gov/StudySections)
 - h/t to Chris whose [code on github](https://github.com/christopherBelter/nih_reporter_api) was all I could find existing in R and served as a starting point for this work

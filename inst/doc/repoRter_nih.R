@@ -117,7 +117,7 @@ res %>% glimpse(width = getOption("cli.width"))
 req <- make_req(criteria = 
                   list(
                     fiscal_years = 2010:2011,
-                    include_active_projects = TRUE, # LIMITS to active projects
+                    include_active_projects = TRUE,
                     org_names = c("Yale", "New Haven")
                   ),
                 include_fields = c("Organization", "FiscalYear", "AwardAmount"),
@@ -190,7 +190,8 @@ res$covid_response[[1]]
 ## all projects funded by the Paycheck Protection Act, Coronavirus Response and Relief Act,
 ## and American Rescue Plan, in fiscal year 2021
 req <- make_req(criteria =
-                  list(covid_response = c("All")))
+                  list(covid_response = c("All")),
+                message = FALSE)
 
 res <- get_nih_data(req,
                     flatten_result = TRUE)
@@ -263,22 +264,23 @@ req <- make_req(criteria =
                          list(operator = "advanced",
                               search_field = c("terms", "abstract"),
                               search_text = "(head AND trauma) OR \"brain damage\" AND NOT \"psychological\"")),
-                include_fields = c("ProjectTitle", "AbstractText", "Terms")  )
+                include_fields = c("ProjectTitle", "AbstractText", "Terms") )
 
 res <- get_nih_data(req, max_pages = 1)
 
 ## --------------------------------------------------------------------------------------------
 one_rec <- res %>%
-  slice(4) %>%
+  slice(5) %>%
   mutate(abstract_text = gsub("[\r\n]", " ", abstract_text))
 
 one_rec %>% pull(project_title) %>% print
 
 ## --------------------------------------------------------------------------------------------
-one_rec %>% pull(abstract_text) %>% print
+## substr to avoid LaTeX error exceeding char limit
+one_rec %>% pull(abstract_text) %>% substr(1, 85) %>% print
 
 ## --------------------------------------------------------------------------------------------
-one_rec %>% pull(terms) %>% substr(1, 500) %>% print
+one_rec %>% pull(terms) %>% substr(1, 85) %>% print
 
 ## ---- eval = FALSE---------------------------------------------------------------------------
 #  all_res <- list()
