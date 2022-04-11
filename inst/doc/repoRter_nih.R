@@ -293,7 +293,8 @@ one_rec %>% pull(terms) %>% substr(1, 85) %>% print
 #    ## return the metadata
 #    res_sample <- get_nih_data(req_sample, max_pages = 2, return_meta = TRUE)
 #  
-#    res_sample$meta$total %>% print ## there are 73,142 project records
+#    paste0("There are ", res_sample$meta$total, " results for fiscal year ", y) %>%
+#      print()
 #  
 #    ## deciles of award amount - each decile should contain ~7,314.2 records, approximately
 #    qtiles <- res_sample$records %>% pull(award_amount) %>% quantile(na.rm = TRUE, probs = seq(.1, 1, .1))
@@ -313,14 +314,12 @@ one_rec %>% pull(terms) %>% substr(1, 85) %>% print
 #        award_max <- ceiling(qtiles[i])
 #      }
 #      req <- make_req(criteria = list(fiscal_years = y,
-#                                      award = list(award_notice_date = "",
-#                                                   award_notice_opr = "",
-#                                                   award_amount_range = list(min_amount = award_min,
-#                                                                             max_amount = award_max))))
+#                                      award_amount_range = list(min_amount = award_min,
+#                                                                max_amount = award_max)))
 #      ## result set for quantile
 #      this_res[[i]] <- get_nih_data(req, flatten_result = FALSE)
 #    }
-#    ## list of result sets for the year
+#    ## list of result sets for each year
 #    yr_res[[y %>% as.character()]] <- this_res
 #  }
 #  

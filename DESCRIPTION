@@ -1,7 +1,7 @@
 Type: Package
 Package: repoRter.nih
 Title: R Interface to the 'NIH RePORTER Project' API
-Version: 0.1.1
+Version: 0.1.2
 Authors@R: 
     person(given = "Michael",
            family = "Barr, ACAS, MAAA, CPCU",
@@ -27,8 +27,8 @@ Language: en-US
 LazyData: true
 RoxygenNote: 7.1.2
 NeedsCompilation: no
-Packaged: 2022-03-11 10:32:45 UTC; mbarr
+Packaged: 2022-04-08 19:03:29 UTC; mbarr
 Author: Michael Barr, ACAS, MAAA, CPCU [cre, aut]
 Maintainer: "Michael Barr, ACAS, MAAA, CPCU" <mike@bikeactuary.com>
 Repository: CRAN
-Date/Publication: 2022-03-11 15:40:07 UTC
+Date/Publication: 2022-04-11 10:00:02 UTC
