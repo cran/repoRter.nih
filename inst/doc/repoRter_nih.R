@@ -3,8 +3,7 @@ knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
   width = 95,
-  fig.dpi = 96,
-  cache.path = "cache/"
+  fig.dpi = 96
 )
 
 opts.old <- options()
@@ -19,53 +18,56 @@ library(dplyr)
 library(scales)
 library(tufte)
 data("covid_response_codes")
+data("nih_fields")
 
-req <- make_req(criteria =
+cov_req <- make_req(criteria =
                   list(covid_response = c("All")),
                 include_fields = nih_fields %>%
                   filter(payload_name %in% c("award_amount_range", "covid_response"))
                 %>% pull(include_name))
 
-res <- get_nih_data(req,
+cov_res <- get_nih_data(cov_req,
                     flatten_result = TRUE)
 
-p <- res %>%
-  left_join(covid_response_codes, by = "covid_response") %>%
-  mutate(covid_code_desc = case_when(!is.na(fund_src) ~ paste0(covid_response, ": ", fund_src),
-                                     TRUE ~ paste0(covid_response, " (Multiple)"))) %>%
-  group_by(covid_code_desc) %>%
-  summarise(total_awards = sum(award_amount) / 1e6) %>%
-  ungroup() %>%
-  arrange(desc(covid_code_desc)) %>%
-  mutate(prop = total_awards / sum(total_awards),
-         csum = cumsum(prop),
-         ypos = csum - prop/2 ) %>%
-  ggplot(aes(x = "", y = prop, fill = covid_code_desc)) +
-  geom_bar(stat="identity") +
-  geom_text_repel(aes(label =
-                        paste0(dollar(total_awards,
-                                      accuracy = 1,
-                                      suffix = "M"),
-                               "\n", percent(prop, accuracy = .01)),
-                      y = ypos),
-                  show.legend = FALSE,
-                  nudge_x = .8,
-                  size = 3, color = "grey25") +
-  coord_polar(theta ="y") +
-  theme_void() +
-  theme(legend.position = "right",
-        legend.title = element_text(colour = "grey25"),
-        legend.text = element_text(colour="blue", size=6, 
-                                   face="bold"),
-        plot.title = element_text(color = "grey25"),
-        plot.caption = element_text(size = 6)) +
-  labs(caption = "Data Source: NIH RePORTER API v2") +
-  ggtitle("Legislative Source for NIH Covid Response Project Funding")
-
-rm(req, res)
+if (class(cov_res)[1] == "tbl_df") {
+  p <- cov_res %>%
+    left_join(covid_response_codes, by = "covid_response") %>%
+    mutate(covid_code_desc = case_when(!is.na(fund_src) ~ paste0(covid_response, ": ", fund_src),
+                                       TRUE ~ paste0(covid_response, " (Multiple)"))) %>%
+    group_by(covid_code_desc) %>%
+    summarise(total_awards = sum(award_amount) / 1e6) %>%
+    ungroup() %>%
+    arrange(desc(covid_code_desc)) %>%
+    mutate(prop = total_awards / sum(total_awards),
+           csum = cumsum(prop),
+           ypos = csum - prop/2 ) %>%
+    ggplot(aes(x = "", y = prop, fill = covid_code_desc)) +
+    geom_bar(stat="identity") +
+    geom_text_repel(aes(label =
+                          paste0(dollar(total_awards,
+                                        accuracy = 1,
+                                        suffix = "M"),
+                                 "\n", percent(prop, accuracy = .01)),
+                        y = ypos),
+                    show.legend = FALSE,
+                    nudge_x = .8,
+                    size = 3, color = "grey25") +
+    coord_polar(theta ="y") +
+    theme_void() +
+    theme(legend.position = "right",
+          legend.title = element_text(colour = "grey25"),
+          legend.text = element_text(colour="blue", size=6, 
+                                     face="bold"),
+          plot.title = element_text(color = "grey25"),
+          plot.caption = element_text(size = 6)) +
+    labs(caption = "Data Source: NIH RePORTER API v2") +
+    ggtitle("Legislative Source for NIH Covid Response Project Funding")
+}
 detach("package:repoRter.nih", unload = TRUE)
 
-p
+if (class(p)[1] == "gg") {
+  p
+}
 
 ## ---- eval = FALSE---------------------------------------------------------------------------
 #  install.packages("repoRter.nih")
@@ -83,7 +85,7 @@ req <- make_req(criteria =
                   list(fiscal_years = 2021,
                        covid_response = c("C4", "C5", "C6")))
 
-## ---- cache = TRUE---------------------------------------------------------------------------
+## --------------------------------------------------------------------------------------------
 res <- get_nih_data(req)
 class(res)
 
@@ -123,7 +125,7 @@ req <- make_req(criteria =
                 include_fields = c("Organization", "FiscalYear", "AwardAmount"),
                 message = FALSE)
 
-## ---- cache=TRUE-----------------------------------------------------------------------------
+## --------------------------------------------------------------------------------------------
 res <- get_nih_data(req, max_pages = 1)
 res %>% glimpse(width = getOption("cli.width"))
 
@@ -134,12 +136,15 @@ res <- get_nih_data(req,
 
 res %>% glimpse(width = getOption("cli.width"))
 
-## --------------------------------------------------------------------------------------------
+## ---- echo = FALSE---------------------------------------------------------------------------
+evl <- class(res)[1] == "tbl_df"
+
+## ---- eval=evl-------------------------------------------------------------------------------
 res %>% 
   group_by(organization_org_name) %>%
   summarise(project_count = n())
 
-## ---- cache=TRUE-----------------------------------------------------------------------------
+## --------------------------------------------------------------------------------------------
 ## A valid request but probably not what we want
 req <- make_req(criteria = 
                   list(
@@ -173,9 +178,9 @@ res <- get_nih_data(req,
 
 res %>% glimpse(width = getOption("cli.width"))
 
-## ---- cache=TRUE-----------------------------------------------------------------------------
+## --------------------------------------------------------------------------------------------
 ## all projects funded by the Paycheck Protection Act, Coronavirus Response and Relief Act,
-## and American Rescue Plan, in fiscal year 2021
+## and American Rescue Plan, over all years
 req <- make_req(criteria =
                   list(covid_response = c("All")),
                 include_fields = nih_fields %>%
@@ -183,56 +188,68 @@ req <- make_req(criteria =
                 %>% pull(include_name))
 
 res <- get_nih_data(req)
+
+## ---- echo=FALSE-----------------------------------------------------------------------------
+evl <- class(res)[1] == "tbl_df"
+
+## ---- eval=evl-------------------------------------------------------------------------------
 res$covid_response %>% class()
 res$covid_response[[1]]
 
-## ----covid, cache = TRUE---------------------------------------------------------------------
-## all projects funded by the Paycheck Protection Act, Coronavirus Response and Relief Act,
-## and American Rescue Plan, in fiscal year 2021
-req <- make_req(criteria =
-                  list(covid_response = c("All")),
-                message = FALSE)
+## ----covid, eval=FALSE-----------------------------------------------------------------------
+#  ## all projects funded by the Paycheck Protection Act, Coronavirus Response and Relief Act,
+#  ## and American Rescue Plan, in fiscal year 2021
+#  req <- make_req(criteria =
+#                    list(covid_response = c("All")),
+#                  message = FALSE)
+#  
+#  res <- get_nih_data(req,
+#                      flatten_result = TRUE)
 
-res <- get_nih_data(req,
-                    flatten_result = TRUE)
+## ---- eval=FALSE-----------------------------------------------------------------------------
+#  unique(res$covid_response)
 
-unique(res$covid_response)
+## ---- echo=FALSE-----------------------------------------------------------------------------
+unique(cov_res$covid_response)
 
-## ---- fig.width=7, fig.height=4--------------------------------------------------------------
-library(ggplot2)
+## ---- eval=FALSE, fig.width=7, fig.height=4--------------------------------------------------
+#  library(ggplot2)
+#  
+#  res %>%
+#    left_join(covid_response_codes, by = "covid_response") %>%
+#    mutate(covid_code_desc = case_when(!is.na(fund_src) ~ paste0(covid_response, ": ", fund_src),
+#                                       TRUE ~ paste0(covid_response, " (Multiple)"))) %>%
+#    group_by(covid_code_desc) %>%
+#    summarise(total_awards = sum(award_amount) / 1e6) %>%
+#    ungroup() %>%
+#    arrange(desc(covid_code_desc)) %>%
+#    mutate(prop = total_awards / sum(total_awards),
+#           csum = cumsum(prop),
+#           ypos = csum - prop/2 ) %>%
+#    ggplot(aes(x = "", y = prop, fill = covid_code_desc)) +
+#    geom_bar(stat="identity") +
+#    geom_text_repel(aes(label =
+#                          paste0(dollar(total_awards,
+#                                        accuracy = 1,
+#                                        suffix = "M"),
+#                                 "\n", percent(prop, accuracy = .01)),
+#                        y = ypos),
+#                    show.legend = FALSE,
+#                    nudge_x = .8,
+#                    size = 3, color = "grey25") +
+#    coord_polar(theta ="y") +
+#    theme_void() +
+#    theme(legend.position = "right",
+#          legend.title = element_text(colour = "grey25"),
+#          legend.text = element_text(colour="blue", size=6,
+#                                     face="bold"),
+#          plot.title = element_text(color = "grey25"),
+#          plot.caption = element_text(size = 6)) +
+#    labs(caption = "Data Source: NIH RePORTER API v2") +
+#    ggtitle("Legislative Source for NIH Covid Response Project Funding")
 
-res %>%
-  left_join(covid_response_codes, by = "covid_response") %>%
-  mutate(covid_code_desc = case_when(!is.na(fund_src) ~ paste0(covid_response, ": ", fund_src),
-                                     TRUE ~ paste0(covid_response, " (Multiple)"))) %>%
-  group_by(covid_code_desc) %>%
-  summarise(total_awards = sum(award_amount) / 1e6) %>%
-  ungroup() %>%
-  arrange(desc(covid_code_desc)) %>%
-  mutate(prop = total_awards / sum(total_awards),
-         csum = cumsum(prop),
-         ypos = csum - prop/2 ) %>%
-  ggplot(aes(x = "", y = prop, fill = covid_code_desc)) +
-  geom_bar(stat="identity") +
-  geom_text_repel(aes(label =
-                        paste0(dollar(total_awards,
-                                      accuracy = 1,
-                                      suffix = "M"),
-                               "\n", percent(prop, accuracy = .01)),
-                      y = ypos),
-                  show.legend = FALSE,
-                  nudge_x = .8,
-                  size = 3, color = "grey25") +
-  coord_polar(theta ="y") +
-  theme_void() +
-  theme(legend.position = "right",
-        legend.title = element_text(colour = "grey25"),
-        legend.text = element_text(colour="blue", size=6, 
-                                   face="bold"),
-        plot.title = element_text(color = "grey25"),
-        plot.caption = element_text(size = 6)) +
-  labs(caption = "Data Source: NIH RePORTER API v2") +
-  ggtitle("Legislative Source for NIH Covid Response Project Funding")
+## ---- echo=FALSE-----------------------------------------------------------------------------
+p
 
 ## --------------------------------------------------------------------------------------------
 data("covid_response_codes")
@@ -268,18 +285,21 @@ req <- make_req(criteria =
 
 res <- get_nih_data(req, max_pages = 1)
 
-## --------------------------------------------------------------------------------------------
+## ---- echo = FALSE---------------------------------------------------------------------------
+evl <- class(res)[1] == "tbl_df"
+
+## ---- eval=evl-------------------------------------------------------------------------------
 one_rec <- res %>%
-  slice(5) %>%
+  slice(42) %>%
   mutate(abstract_text = gsub("[\r\n]", " ", abstract_text))
 
 one_rec %>% pull(project_title) %>% print
 
-## --------------------------------------------------------------------------------------------
+## ---- eval=evl-------------------------------------------------------------------------------
 ## substr to avoid LaTeX error exceeding char limit
 one_rec %>% pull(abstract_text) %>% substr(1, 85) %>% print
 
-## --------------------------------------------------------------------------------------------
+## ---- eval=evl-------------------------------------------------------------------------------
 one_rec %>% pull(terms) %>% substr(1, 85) %>% print
 
 ## ---- eval = FALSE---------------------------------------------------------------------------
